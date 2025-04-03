@@ -49,4 +49,5 @@ Options:
 python3.9 methylAgeRegresser.py -m data/sample_covs.10.csv -b data/sample_cgi.bed -o test_out -c test_CGIs --num_pcs 0
 ```
 There are no significant hits in the provided test data. It should produce 2 BED files, 2 csv files, and 4 images.
+Example output is in ```data/test_out/```
 
