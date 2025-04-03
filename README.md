@@ -33,6 +33,7 @@ Options:
 ```
 
 ### Regression Outputs
+```
 (1) Scatter plot of PC1 & PC2
 (2) Barchart of variance explalined by all PCs
 (3) Heatmap of correlations for covariates and first ~50 features
@@ -42,7 +43,7 @@ Options:
 (7) Significant hits ( FDR < alpha ) of multivariable linear regression as a BED file with Age coeff as value
   for regions with abs(AgeCoeff)>0.1 and r2>0.4
 (8) Volcano plot of all significant hits.
-
+```
 ### Test Regression 
 ```
 python3.9 methylAgeRegresser.py -m data/sample_covs.10.csv -b data/sample_cgi.bed -o test_out -c test_CGIs --num_pcs 0
