@@ -22,7 +22,7 @@ import seaborn as sns
 
 
 """
-Performs a regression Age ~ meth + sex + PMI
+Performs a regression Meth ~ age + sex + PMI
 
 inputs: (1) a metadat/covariate file with at least Age, Gender, and PMI 
             This method has been developed for the NABEC and HBCC cohorts
@@ -118,6 +118,8 @@ def pca(methyl_autosomes, covs, cohort_region):
 
     # Innicialize pca of methylation data
     n_components=20
+    if n_components>x_scaled.shape[0]:
+        n_components=x_scaled.shape[0]-1
     pca = PCA(n_components=n_components)
 
     # fit the pca to the data's variation     
@@ -127,17 +129,17 @@ def pca(methyl_autosomes, covs, cohort_region):
 
     # plot variance explained 
     fig, axs = plt.subplots(1,2, figsize=(15,6))
-    axs[0].bar(range(1, 21), pca.explained_variance_ratio_ )
-    axs[0].set_xticks(range(1, 21))
+    axs[0].bar(range(1, n_components+1), pca.explained_variance_ratio_ )
+    axs[0].set_xticks(range(1, n_components+1))
     axs[0].set_title("PCA variance explained")
     axs[0].set_ylabel("Variance")
     axs[0].set_xlabel("PC")
 
     cumulative_variance = np.cumsum(pca.explained_variance_ratio_)
-    axs[1].plot(range(1, 21), cumulative_variance, marker='o', linestyle='--')
+    axs[1].plot(range(1, n_components+1), cumulative_variance, marker='o', linestyle='--')
     axs[1].axhline(y=0.95, color='r', linestyle='--', label='95% Explained Variance')
     axs[1].legend(loc='upper right')
-    axs[1].set_xticks(range(1, 21))
+    axs[1].set_xticks(range(1, n_components+1))
     axs[1].set_title("PCA cumulative variance explained")
     axs[1].set_ylabel("Variance")
     axs[1].set_xlabel("PC")
@@ -362,7 +364,7 @@ if __name__ == "__main__":
         type=int,
         default=10,
         required=False,
-        help="Number of principal components to include in regression"
+        help="Number of principal components to include in regression, default:10"
     )
 
 
