@@ -1,7 +1,7 @@
 # CARD_RegionalMethylation
 
 Methods to aggregate methylation from ONT R9 or R10 sequencing data after merging coverage and average methylation data across a cohort. 
-Merging is done as a part of the [cohort-level]https://github.com/nanoporegenomics/napu_wf/blob/R10_gt/wdl/cohort_wdl/scripts/merge_modkit_beds_allCpGs.py work of the NAPU pipeline. 
+Merging is done as a part of the [cohort-level](https://github.com/nanoporegenomics/napu_wf/blob/R10_gt/wdl/cohort_wdl/scripts/merge_modkit_beds_allCpGs.py) work of the NAPU pipeline. 
 
 ## Python3 Dependancies
  ```argparse, numpy, pandas, datetime, matplotlib, seaborn, sklearn, statsmodels```  
@@ -48,3 +48,5 @@ Options:
 ```
 python3.9 methylAgeRegresser.py -m data/sample_covs.10.csv -b data/sample_cgi.bed -o test_out -c test_CGIs --num_pcs 0
 ```
+There are no significant hits in the provided test data. It should produce 2 BED files, 2 csv files, and 4 images.
+
