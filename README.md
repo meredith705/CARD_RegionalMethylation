@@ -17,11 +17,15 @@ The process is automated in the ``` organizeSortedMethylBed.sh ``` , but the ind
 The input cohort BED/tsv and input regional BED need to be sorted, bgzip-ed, and indexed for parallel analysis. <br>
 The ``` organizeSortedMethylBed.sh ``` bash script automates these steps of sorting, bgzipping, indexing. It also runs the filtering script and the bedtools map aggregation step. 
 
-Change permissions to be executable: 
+Change permissions to be executable: <br>
 ```chmod u+x organizeSortedMethylBed.sh ```
-Test executable: 
+Test executable: <br>
 ```
 ./organizeSortedMethylBed.sh
+```
+Expected output:
+```
+
  Usage: ./organizeSortedMethylBed.sh <region.bed> <cohort.tsv> <filter.py> <cohortId> 
 ```
 filter.py is the location of the ```filter_cohort_methylation_parallel.py``` script. <br>
