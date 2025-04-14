@@ -238,7 +238,7 @@ def plot_volcano(df, cohort_region, alpha):
 
 
 
-def format_run_regression(methylBed, covs, alpha, num_pcs, cohort_region, output_dir):
+def format_run_regression(methylBed, covs, haplotype, alpha, num_pcs, cohort_region, output_dir):
     """ set up data for regression and run it """
 
     log_time(f"Read in methylbed")
@@ -246,14 +246,41 @@ def format_run_regression(methylBed, covs, alpha, num_pcs, cohort_region, output
     meth_bed = pd.read_csv(methylBed,  delimiter='\t', na_values=['.'])
 
     # make a position column out of chrom, start, and end
-    meth_bed['position'] = meth_bed['chrom'] + '_' + meth_bed['start'].astype(str) + '_' + meth_bed['end'].astype(str)
-    meth_bed.drop(['chrom', 'start','end'], axis=1, inplace=True)
+    # check for chrom syntax
+    chrom_name = "chrom"
+    if "#chrom" in meth_bed.columns:
+        chrom_name = "#chrom"
+
+    start_col = "start"
+    if start_col not in meth_bed.columns:
+        start_col = meth_bed.columns[1]
+
+    end_col = "end"
+    if end_col not in meth_bed.columns:
+        end_col = meth_bed.columns[2]
+
+    # make a position column and set it as the index
+    meth_bed['position'] = meth_bed[chrom_name] + '_' + meth_bed[start_col].astype(str) + '_' + meth_bed[end_col].astype(str)
+    meth_bed.drop([chrom_name, start_col,end_col], axis=1, inplace=True)
     meth_bed.set_index(['position'], inplace=True)
     # remove any extra columns
-    meth_bed = meth_bed.loc[:, meth_bed.columns.str.startswith('avgMod')]
-    # replace avgMod_sampleID with just sampleIDs 
-    meth_bed.rename(columns=lambda x: x.replace('avgMod_', '') if isinstance(x, str) and x.startswith('avgMod_') else x, inplace=True)
-    print(meth_bed.head())
+    # meth_bed = meth_bed.loc[:, meth_bed.columns.str.startswith('avgMod')]
+    meth_bed = meth_bed.loc[:, meth_bed.columns.str.endswith('_modFraction')]
+
+    # replace avgMod_sampleID with just sampleIDs to match covariates 
+    # meth_bed.rename(columns=lambda x: x.replace('avgMod_', '') if isinstance(x, str) and x.startswith('avgMod_') else x, inplace=True)
+    # check which haplotype and replace column names to match covariates
+    str_to_replace = ""
+    if haplotype == 1:
+        str_to_replace = '_GRCh38_1_modFraction'
+    elif haplotype == 2:
+        str_to_replace = '_GRCh38_2_modFraction'
+    else:
+        log_time(f"Haplotype {haplotype} not 1 or 2?; Exiting")
+        return -1
+
+    meth_bed.rename(columns=lambda x: x.replace(str_to_replace, '') if isinstance(x, str) and x.endswith('_modFraction') else x, inplace=True)
+    print( meth_bed.head())
 
     log_time(f"Drop non autosomes")
     # drop sex chromosomes
@@ -297,9 +324,9 @@ def format_run_regression(methylBed, covs, alpha, num_pcs, cohort_region, output
     meth_bed_autosomes_age_lr_df_noi.loc[meth_bed_autosomes_age_lr_df_noi['bh_corrected_P_Value_Age']<alpha].to_csv(f"{output_dir}/{cohort_region}_olsRcov_Age_PMI_Gender_BHsig_{datetime.now().strftime('%Y-%m')}.csv",index=True,header=True,sep=",")
 
     df_split = meth_bed_autosomes_age_lr_df_noi['Position'].str.split('_', expand=True)
-    df_split.columns = ['chrom', 'start','end']
+    df_split.columns = ['#chrom', 'start','end']
 
-    meth_bed_autosomes_age_lr_df_noi['chrom'] = df_split['chrom']
+    meth_bed_autosomes_age_lr_df_noi['#chrom'] = df_split['#chrom']
     meth_bed_autosomes_age_lr_df_noi['start'] = df_split['start']
     meth_bed_autosomes_age_lr_df_noi['end'] = df_split['end']
 
@@ -308,9 +335,9 @@ def format_run_regression(methylBed, covs, alpha, num_pcs, cohort_region, output
     meth_bed_autosomes_age_lr_df_noi_bhSig = meth_bed_autosomes_age_lr_df_noi.loc[meth_bed_autosomes_age_lr_df_noi['bh_corrected_P_Value_Age'] < 0.05]
 
     log_time(f"Write out all hits with bh- corrected p value as bed")
-    meth_bed_autosomes_age_lr_df_noi_bhSig[['chrom', 'start','end','bh_corrected_P_Value_Age','Age_Coeff']].to_csv(f'{output_dir}/{cohort_region}_lr_Age_PMI_Gender.bed',index=False,header=False,sep="\t")
+    meth_bed_autosomes_age_lr_df_noi_bhSig[['#chrom', 'start','end','bh_corrected_P_Value_Age','Age_Coeff']].to_csv(f'{output_dir}/{cohort_region}_lr_Age_PMI_Gender.bed',index=False,header=False,sep="\t")
     log_time(f"Write out all hits with bh- corrected slope as bed")
-    meth_bed_autosomes_age_lr_df_noi_bhSig.loc[(meth_bed_autosomes_age_lr_df_noi_bhSig['Age_Coeff'] > 0.1) & (meth_bed_autosomes_age_lr_df_noi_bhSig['r2'] > 0.4)][['chrom', 'start','end','Age_Coeff']].to_csv(f'{output_dir}/{cohort_region}_lr_Age_PMI_Gender_bh_sig_AgeSlope1_r2.4.bed',index=False,header=False,sep="\t")
+    meth_bed_autosomes_age_lr_df_noi_bhSig.loc[(meth_bed_autosomes_age_lr_df_noi_bhSig['Age_Coeff'] > 0.1) & (meth_bed_autosomes_age_lr_df_noi_bhSig['r2'] > 0.4)][['#chrom', 'start','end','Age_Coeff']].to_csv(f'{output_dir}/{cohort_region}_lr_Age_PMI_Gender_bh_sig_AgeSlope1_r2.4.bed',index=False,header=False,sep="\t")
 
     plot_volcano(meth_bed_autosomes_age_lr_df_noi_bhSig, cohort_region, alpha)
 
@@ -352,6 +379,13 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "-d","--haplotype",
+        type=int,
+        required=True,
+        help="haplotype; integer 1 or 2"
+    )
+
+    parser.add_argument(
         "-a","--alpha",
         type=float,
         default=0.05,
@@ -385,7 +419,7 @@ if __name__ == "__main__":
     cov_data = get_meta(args.in_meta_file)
 
     # Set up and run regression 
-    format_run_regression(args.methylbed, cov_data, args.alpha, args.num_pcs, args.cohort_region, output_dir)
+    format_run_regression(args.methylbed, cov_data, args.haplotype, args.alpha, args.num_pcs, args.cohort_region, output_dir)
 
 
 
