@@ -263,24 +263,37 @@ def format_run_regression(methylBed, covs, haplotype, alpha, num_pcs, cohort_reg
     meth_bed['position'] = meth_bed[chrom_name] + '_' + meth_bed[start_col].astype(str) + '_' + meth_bed[end_col].astype(str)
     meth_bed.drop([chrom_name, start_col,end_col], axis=1, inplace=True)
     meth_bed.set_index(['position'], inplace=True)
-    # remove any extra columns
-    # meth_bed = meth_bed.loc[:, meth_bed.columns.str.startswith('avgMod')]
-    meth_bed = meth_bed.loc[:, meth_bed.columns.str.endswith('_modFraction')]
+    
 
-    # replace avgMod_sampleID with just sampleIDs to match covariates 
-    # meth_bed.rename(columns=lambda x: x.replace('avgMod_', '') if isinstance(x, str) and x.startswith('avgMod_') else x, inplace=True)
+    
     # check which haplotype and replace column names to match covariates
     str_to_replace = ""
-    if haplotype == 1:
-        str_to_replace = '_GRCh38_1_modFraction'
-    elif haplotype == 2:
-        str_to_replace = '_GRCh38_2_modFraction'
+    if haplotype == 0:
+        log_time(f"Unphased")
+        # replace avgMod_sampleID with just sampleIDs to match covariates 
+        # assume this is from the old unphased method
+        meth_bed = meth_bed.loc[:, meth_bed.columns.str.startswith('avgMod')]
+        meth_bed.rename(columns=lambda x: x.replace('avgMod_', '') if isinstance(x, str) and x.startswith('avgMod_') else x, inplace=True)
+
+    elif ((haplotype == 1) | (haplotype == 2)):
+        log_time(f"Phased")
+        # remove any extra columns
+        meth_bed = meth_bed.loc[:, meth_bed.columns.str.endswith('_modFraction')]
+        # phased data
+        if haplotype == 1:
+            str_to_replace = '_GRCh38_1_modFraction'
+        elif haplotype == 2:
+            str_to_replace = '_GRCh38_2_modFraction'
+
+        # replace columns with just sampel name to match covariates
+        meth_bed.rename(columns=lambda x: x.replace(str_to_replace, '') if isinstance(x, str) and x.endswith('_modFraction') else x, inplace=True)
+
     else:
-        log_time(f"Haplotype {haplotype} not 1 or 2?; Exiting")
+        log_time(f"Haplotype {haplotype} not 0, 1, or 2?; Exiting")
         return -1
 
-    meth_bed.rename(columns=lambda x: x.replace(str_to_replace, '') if isinstance(x, str) and x.endswith('_modFraction') else x, inplace=True)
-    print( meth_bed.head())
+    
+    print("in file:\n", meth_bed.head())
 
     log_time(f"Drop non autosomes")
     # drop sex chromosomes
@@ -382,7 +395,7 @@ if __name__ == "__main__":
         "-d","--haplotype",
         type=int,
         required=True,
-        help="haplotype; integer 1 or 2"
+        help="haplotype; integer 1 or 2; or 0 for unphased"
     )
 
     parser.add_argument(
