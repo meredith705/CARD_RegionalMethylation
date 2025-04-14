@@ -275,9 +275,9 @@ def process_chromosomes_in_parallel(output_dir, in_tsv, in_bed, average_coverage
 if __name__ == "__main__":
 
     # Make an argument parser
-    parser = argparse.ArgumentParser(description="Merge partially combined methylbeds from Modkit across cohorts. Merged on ['chrom', 'start', 'end']")
+    parser = argparse.ArgumentParser(description="Filter positions from the group BED that don't pass coverage or cpg minimum filters.")
     parser.add_argument(
-        "-i","--innput_cohort_tsv",
+        "-i","--input_cohort_tsv",
         type=str,
         required=True,
         help="Path to the cohort combined input TSV file with header ( must be bgzip and tabix )."

@@ -1,13 +1,102 @@
 # CARD_RegionalMethylation
 
-Methods to aggregate methylation from ONT R9 or R10 sequencing data after merging coverage and average methylation data across a cohort. 
+Methods to aggregate methylation from ONT R9 or R10 sequencing data after merging coverage and average methylation data across a cohort. <br>
 Merging is done as a part of the [cohort-level](https://github.com/nanoporegenomics/napu_wf/blob/R10_gt/wdl/cohort_wdl/scripts/merge_modkit_beds_allCpGs.py) work of the NAPU pipeline. 
 
-## Python3 Dependancies
+## Dependancies
+``` bedtools, bgzip, tabix, python3```
+## Python3.9 Dependancies
  ```argparse, numpy, pandas, datetime, matplotlib, seaborn, sklearn, statsmodels```  
+ 
 
 ## Methylation Aggregation
-In development 
+Methylation is averaged across a given set of BED regions of interest. <br>
+The process is automated in the ``` organizeSortedMethylBed.sh ``` , but the individual steps are also described below. 
+
+### Filtering and Aggregation Bash Script
+The input cohort BED/tsv and input regional BED need to be sorted, bgzip-ed, and indexed for parallel analysis. <br>
+The ``` organizeSortedMethylBed.sh ``` bash script automates these steps of sorting, bgzipping, indexing. It also runs the filtering script and the bedtools map aggregation step. 
+
+Change permissions to be executable: 
+```chmod u+x organizeSortedMethylBed.sh ```
+Test executable: 
+```
+./organizeSortedMethylBed.sh
+ Usage: ./organizeSortedMethylBed.sh <region.bed> <cohort.tsv> <filter.py> <cohortId> 
+```
+<br>
+
+Example Usage with CpG Islands BED:
+``` $ ./organizeMethylBed.sh cpg_hg38.bed cohort_combined_methylation_hap1.sorted.tsv.gz ```
+The whole genome CpGs are intersected with the bed regions of interst in order to reduce the number of positions analyzed downstream. 
+
+### Filtering and Aggregation Bash Script Output
+
+```
+(1) input group BED intersected with bed region: cohort_combined_methylation_hap1.sorted.tsv.cpg_hg38.bed.tsv.gz  
+(2) intersected index:                           combined_methylation_hap1.sorted.tsv.cpg_hg38.bed.tsv.gz.tbi  
+(3) bgzip-ped and indexed bed regions:           cpg_hg38.bed.sorted.tsv.gz  cpg_hg38.bed.sorted.tsv.gz.tbi  
+(4) directory for coverage/cpg filtered output:  filter_cpg_hg38   
+(5) File containing the header for mapping:      regional_bedtoolsMapMean_header.tsv
+(6) File with mappings for each region:          combined_methylation_hap1.sorted.tsv.cpg_hg38.bed.regional_bedtoolsMapMean.cohort.tsv
+```
+The file with mappings for each region is what can be used for regression. 
+
+#### Filtering and Aggregation Inputs 
+
+CpG positions that intersect with the input regional BED are considered for minimum coverage and minimum number of CpGs within that region. 
+```filter_cohort_methylation_parallel.py``` removes individual CpGs for entire regions where these minimums are not covered. <br>
+Filtering individual CpG sites that dropout is under development, currently an average coverage is used to evalulate passing coverage minimum. 
+
+```
+usage: filter_cohort_methylation_parallel.py [-h] -i INPUT_COHORT_TSV -b IN_BED_FILE -o OUTPUT_DIR
+
+Filter positions from the group BED that don't pass coverage or cpg minimum filters.
+
+Required arguments:
+  -h, --help            show this help message and exit
+  -i INPUT_COHORT_TSV, --input_cohort_tsv INPUT_COHORT_TSV
+                        Path to the cohort combined input TSV file with header ( must be bgzip and tabix ).
+  -b IN_BED_FILE, --in_bed_file IN_BED_FILE
+                        Path to the bed file region of interest ( must be bgzip and tabix ).
+  -o OUTPUT_DIR, --output_dir OUTPUT_DIR
+                        output directory.
+  -l [CHROMOSOMES ...], --chromosomes [CHROMOSOMES ...]
+                        List of chromosomes to process (optional). If not provided, all chromosomes will be used.
+  -m MIN_COV, --min_cov MIN_COV
+                        Minimum coverage; default=5x.
+  -g MIN_CPGS, --min_cpgs MIN_CPGS
+                        Minimum number of CpGs within a bed region; default=5x.
+  -c AVERAGE_COVERAGE, --average_coverage AVERAGE_COVERAGE
+                        Boolean to determine if every cpg site needs to be > min cov or average across region is > mincov; default True
+  -f WRITE_FAILS, --write_fails WRITE_FAILS
+                        Boolean to determine if the positions that don't pass coverage or min cpg filter are written out; default True
+  -t THREADS, --threads THREADS
+                        threads; default 3.
+```
+There are 2 required inputs: A cohort BED/tsv and a regional BED file. <br><br>
+The cohort BED/tsv input is a phased BED/tsv file for each CpG in the reference genome (GRCh38)<br>
+including the usual BED positions ```#chrom start end``` <br>
+followed by 3 columns for each sample in a cohort: <br>
+```SAMPLE_GRCh38_2_validCov        SAMPLE_GRCh38_2_modFraction     SAMPLE_GRCh38_2_modReads  ```
+
+The second input required is a BED file of regions of interest. <br>
+For example CpG Islands in GRCh38: 
+```
+data/small.cpg.bed 
+#chrom  chromStart  chromEnd  name  length  cpgNum  gcNum perCpg  perGc obsExp
+chr1  28735 29737 CpG:_111  1002  111 731 22.2  73  0.85
+chr1  135124  135563  CpG:_30 439 30  295 13.7  67.2  0.64
+chr1  199251  200121  CpG:_104  870 104 643 23.9  73.9  0.89
+```
+
+#### Filtering outputs:
+
+```
+combined_methylation_hap1_tsv_cpg_hg38_bed_tsv_average_regional_coverage_2025-04-12.tsv  
+combined_methylation_hap1_tsv_cpg_hg38_bed_tsv_failedCovFilter_5cov_5cpgs_2025-04-12.tsv  
+combined_methylation_hap1_tsv_cpg_hg38_bed_tsv_filtered_5cov_5cpgs_2025-04-12.tsv
+```
 
 ## Multivariate Regression with Age
 ``` methylAgeRegresser.py``` Runs a multivariate regression on aggregated methylation data on all samples in a cohort. 
@@ -25,6 +114,8 @@ Required:
                         methylbed file with samples as columns
   -c COHORT_REGION, --cohort_region COHORT_REGION
                         cohort name and region name for naming output files
+  -d HAPLOTYPE, --haplotype HAPLOTYPE
+                        haplotype; integer 1 or 2; or 0 for unphased
 Options:
   -a ALPHA, --alpha ALPHA
                         alpha significance value for FDR, default:0.05
@@ -44,9 +135,16 @@ Options:
   for regions with abs(AgeCoeff)>0.1 and r2>0.4
 (8) Volcano plot of all significant hits.
 ```
-### Test Regression 
+### Test Phased Regression 
 ```
-python3.9 methylAgeRegresser.py -m data/sample_covs.10.csv -b data/sample_cgi.bed -o test_out -c test_CGIs --num_pcs 0
+python methylAgeRegresser.py -m data/sample_covs.10.csv -b data/small.phased.testData.tsv -o test_phased -d 2 -c test_data --num_pcs 0
+```
+There are no significant hits in the provided test data. It should produce 2 BED files, 2 csv files, and 4 images.
+Example output is in ```data/test_phased/```
+
+### Test Unphased Regression ( depreciated )
+```
+python methylAgeRegresser.py -m data/sample_covs.10.csv -b data/sample_cgi.bed -o test_out -d 0 -c test_CGIs --num_pcs 0
 ```
 There are no significant hits in the provided test data. It should produce 2 BED files, 2 csv files, and 4 images.
 Example output is in ```data/test_out/```
