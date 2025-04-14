@@ -31,9 +31,9 @@ Expected output:
 filter.py is the location of the ```filter_cohort_methylation_parallel.py``` script. <br>
 Each of the commands in the bash script could be run individually if desired. 
 
-Example Usage with CpG Islands BED:
-``` $ ./organizeMethylBed.sh small.cpg.bed cohort.small.tsv.gz filter_cohort_methylation_parallel.py <COHORT_NAME>```
-The whole genome CpGs are intersected with the bed regions of interst in order to reduce the number of positions analyzed downstream. 
+Example Usage with CpG Islands BED: <br>
+``` $ ./organizeMethylBed.sh small.cpg.bed cohort.small.tsv.gz filter_cohort_methylation_parallel.py <COHORT_NAME>``` <br>
+The whole genome CpGs are intersected with the bed regions of interst in order to reduce the number of positions analyzed downstream.  <br>
 
 ### Filtering and Aggregation Bash Script Output
 
@@ -50,7 +50,7 @@ The file with mappings for each region ```cohort.small.tsv.gz.small.cpg.bed.regi
 #### Filtering and Aggregation Inputs 
 
 CpG positions that intersect with the input regional BED are considered for minimum coverage and minimum number of CpGs within that region. 
-```filter_cohort_methylation_parallel.py``` removes individual CpGs for entire regions where these minimums are not covered. <br>
+```filter_cohort_methylation_parallel.py``` removes individual CpGs for entire regions where these minimums are not covered. <br> <br>
 Filtering individual CpG sites that dropout is under development, currently an average coverage is used to evalulate passing coverage minimum. 
 
 ```
@@ -98,9 +98,9 @@ chr1  199251  200121  CpG:_104  870 104 643 23.9  73.9  0.89
 #### Filtering outputs:
 
 ```
-combined_methylation_hap1_tsv_cpg_hg38_bed_tsv_average_regional_coverage_2025-04-12.tsv  
-combined_methylation_hap1_tsv_cpg_hg38_bed_tsv_failedCovFilter_5cov_5cpgs_2025-04-12.tsv  
-combined_methylation_hap1_tsv_cpg_hg38_bed_tsv_filtered_5cov_5cpgs_2025-04-12.tsv
+cohort.small_hap1_tsv_cpg_hg38_bed_tsv_average_regional_coverage_2025-04-12.tsv  
+cohort.small_hap1_tsv_cpg_hg38_bed_tsv_failedCovFilter_5cov_5cpgs_2025-04-12.tsv  
+cohort.small_hap1_tsv_cpg_hg38_bed_tsv_filtered_5cov_5cpgs_2025-04-12.tsv
 ```
 
 ## Multivariate Regression with Age
