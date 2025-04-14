@@ -18,7 +18,7 @@ The input cohort BED/tsv and input regional BED need to be sorted, bgzip-ed, and
 The ``` organizeSortedMethylBed.sh ``` bash script automates these steps of sorting, bgzipping, indexing. It also runs the filtering script and the bedtools map aggregation step. 
 
 Change permissions to be executable: <br>
-```chmod u+x organizeSortedMethylBed.sh ```
+```chmod u+x organizeSortedMethylBed.sh ``` <br>
 Test executable: <br>
 ```
 ./organizeSortedMethylBed.sh
