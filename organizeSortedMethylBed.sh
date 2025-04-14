@@ -46,20 +46,19 @@ fi
 
 # Filter regions with low coverage in any sample
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] Starting coverage filtering"
-python $filterScript -o "filter_'$clean_bed_name'_region" -i $clean_intsv_name.$clean_bed_name.tsv.gz -b $clean_bed_name.sorted.tsv.gz -t 12
-cp regional_bedtoolsMapMean_header.tsv "$clean_intsv_name.$clean_bed_name.regional_bedtoolsMapMean.tsv"
+outdirname="filter_${clean_bed_name}_region"
+python $filterScript -o $outdirname -i ${clean_intsv_name}.${clean_bed_name}.tsv.gz -b ${clean_bed_name}.sorted.tsv.gz -t 12
+cp regional_bedtoolsMapMean_header.tsv "$clean_intsv_name.$clean_bed_name.regional_bedtoolsMapMean.$cohort.tsv"
 
 # look for output files
-dir="filter_${clean_bed_name}_region"
+if [ -d "$outdirname" ]; then
+	filtfile=$(ls "$outdirname"/*_filtered_* 2>/dev/null | head -n 1)
 
-if [ -d "$dir" ]; then
-	filtfile=$(ls "$dir"/*_filtered_* 2>/dev/null | head -n 1)
-
-	if [ -z "$file" ]; then
-		echo "No file matching *_filtered_* found in $dir."
+	if [ -z "$filtfile" ]; then
+		echo "No file matching *_filtered_* found in $outdirname."
 		exit 1
 	else
-		echo "Using file: $file"
+		echo "Using file: $filtfile"
 		# check which cohort to run mapping 
 		if [ "$cohort" == "NABEC" ]; then
 			echo "[$(date +"%Y-%m-%d %H:%M:%S")] bedtools map NABEC"
@@ -76,7 +75,7 @@ if [ -d "$dir" ]; then
 
 	fi
 else
-	echo "Directory $dir does not exist."
+	echo "Directory $outdirname does not exist."
 	exit 1
 fi
 

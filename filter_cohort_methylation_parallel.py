@@ -362,7 +362,7 @@ if __name__ == "__main__":
         args.chromosomes = subprocess.check_output(["tabix", "-l", args.in_bed_file], text=True).splitlines()
 
     log_time(f'running coverage filtering with: min cpgs: {args.min_cpgs} and min cov: {args.min_cov}')
-    process_chromosomes_in_parallel(output_dir, args.innput_cohort_tsv, args.in_bed_file, args.average_coverage, args.min_cov, args.min_cpgs, args.chromosomes, args.threads, args.write_fails)
+    process_chromosomes_in_parallel(output_dir, args.input_cohort_tsv, args.in_bed_file, args.average_coverage, args.min_cov, args.min_cpgs, args.chromosomes, args.threads, args.write_fails)
 
     # TEST ME!
     # filter_regions_by_coverage(args.innput_cohort_tsv, args.in_bed_file, args.average_coverage, args.min_cov, args.min_cpgs)

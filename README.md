@@ -24,23 +24,24 @@ Test executable:
 ./organizeSortedMethylBed.sh
  Usage: ./organizeSortedMethylBed.sh <region.bed> <cohort.tsv> <filter.py> <cohortId> 
 ```
-<br>
+filter.py is the location of the ```filter_cohort_methylation_parallel.py``` script. <br>
+Each of the commands in the bash script could be run individually if desired. 
 
 Example Usage with CpG Islands BED:
-``` $ ./organizeMethylBed.sh cpg_hg38.bed cohort_combined_methylation_hap1.sorted.tsv.gz ```
+``` $ ./organizeMethylBed.sh small.cpg.bed cohort.small.tsv.gz filter_cohort_methylation_parallel.py <COHORT_NAME>```
 The whole genome CpGs are intersected with the bed regions of interst in order to reduce the number of positions analyzed downstream. 
 
 ### Filtering and Aggregation Bash Script Output
 
 ```
-(1) input group BED intersected with bed region: cohort_combined_methylation_hap1.sorted.tsv.cpg_hg38.bed.tsv.gz  
-(2) intersected index:                           combined_methylation_hap1.sorted.tsv.cpg_hg38.bed.tsv.gz.tbi  
-(3) bgzip-ped and indexed bed regions:           cpg_hg38.bed.sorted.tsv.gz  cpg_hg38.bed.sorted.tsv.gz.tbi  
-(4) directory for coverage/cpg filtered output:  filter_cpg_hg38   
+(1) input group BED intersected with bed region: cohort.small.tsv.gz.small.cpg.bed.tsv.gz  
+(2) intersected index:                           cohort.small.tsv.gz.small.cpg.bed.tsv.gz.tbi  
+(3) bgzip-ped and indexed bed regions:           small.cpg.bed.sorted.tsv.gz  small.cpg.bed.sorted.tsv.gz.tbi  
+(4) directory for coverage/cpg filtered output:  filter_small.cpg.bed_region   
 (5) File containing the header for mapping:      regional_bedtoolsMapMean_header.tsv
-(6) File with mappings for each region:          combined_methylation_hap1.sorted.tsv.cpg_hg38.bed.regional_bedtoolsMapMean.cohort.tsv
+(6) File with mappings for each region:          cohort.small.tsv.gz.small.cpg.bed.regional_bedtoolsMapMean.cohort.tsv
 ```
-The file with mappings for each region is what can be used for regression. 
+The file with mappings for each region ```cohort.small.tsv.gz.small.cpg.bed.regional_bedtoolsMapMean.cohort.tsv```is what can be used for regression. 
 
 #### Filtering and Aggregation Inputs 
 
