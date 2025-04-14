@@ -45,7 +45,9 @@ The whole genome CpGs are intersected with the bed regions of interst in order t
 (5) File containing the header for mapping:      regional_bedtoolsMapMean_header.tsv
 (6) File with mappings for each region:          cohort.small.tsv.gz.small.cpg.bed.regional_bedtoolsMapMean.cohort.tsv
 ```
-The file with mappings for each region ```cohort.small.tsv.gz.small.cpg.bed.regional_bedtoolsMapMean.cohort.tsv```is what can be used for regression. 
+The file with mappings for each region ```cohort.small.tsv.gz.small.cpg.bed.regional_bedtoolsMapMean.cohort.tsv```is what can be used for regression. <br>
+<br>
+The following sections describe the filtering that is performed inside of the bash script:
 
 #### Filtering and Aggregation Inputs 
 
@@ -96,12 +98,16 @@ chr1  199251  200121  CpG:_104  870 104 643 23.9  73.9  0.89
 ```
 
 #### Filtering outputs:
+A tsv of average coverage per region, positions that failed filters, and a file of positions that passed filters. <br> 
 
 ```
 cohort.small_hap1_tsv_cpg_hg38_bed_tsv_average_regional_coverage_2025-04-12.tsv  
 cohort.small_hap1_tsv_cpg_hg38_bed_tsv_failedCovFilter_5cov_5cpgs_2025-04-12.tsv  
 cohort.small_hap1_tsv_cpg_hg38_bed_tsv_filtered_5cov_5cpgs_2025-04-12.tsv
 ```
+<br> 
+The file of positions that passed filters is then passed to bedtools map to average methylation over the input bed regions. <br>
+
 
 ## Multivariate Regression with Age
 ``` methylAgeRegresser.py``` Runs a multivariate regression on aggregated methylation data on all samples in a cohort. 
