@@ -223,8 +223,8 @@ def plot_volcano(df, cohort_region, alpha):
     fig, axs = plt.subplots(1, 1, figsize=(8, 10)) 
 
     sns.scatterplot(x='Age_Coeff', y='neg_log10_bh_corrected_P_Value_Age', data=df, hue='neg_log10_bh_corrected_P_Value_Age', edgecolor='k', s=28, ax=axs, palette='coolwarm')
-    bh_num_sig = df.loc[(df['bh_corrected_P_Value_Age']<0.05)].shape[0]
-    axs.axhline(y=-np.log10(alpha), color='red', label=f'FDR=0.05: {bh_num_sig} sig hits')
+    bh_num_sig = df.loc[(df['bh_corrected_P_Value_Age']<alpha)].shape[0]
+    axs.axhline(y=-np.log10(alpha), color='red', label=f'FDR={alpha}: {bh_num_sig} sig hits')
 
     axs.legend()
     axs.set_title(f'{cohort_region} Avg Methylation Linear Regression x Age')
@@ -345,7 +345,7 @@ def format_run_regression(methylBed, covs, haplotype, alpha, num_pcs, cohort_reg
 
 
     # write out all the B-H Significant hits; and then those with slope (-.05 > S > 0.05)
-    meth_bed_autosomes_age_lr_df_noi_bhSig = meth_bed_autosomes_age_lr_df_noi.loc[meth_bed_autosomes_age_lr_df_noi['bh_corrected_P_Value_Age'] < 0.05]
+    meth_bed_autosomes_age_lr_df_noi_bhSig = meth_bed_autosomes_age_lr_df_noi.loc[meth_bed_autosomes_age_lr_df_noi['bh_corrected_P_Value_Age'] < alpha]
 
     log_time(f"Write out all hits with bh- corrected p value as bed")
     meth_bed_autosomes_age_lr_df_noi_bhSig[['#chrom', 'start','end','bh_corrected_P_Value_Age','Age_Coeff']].to_csv(f'{output_dir}/{cohort_region}_lr_Age_PMI_Gender.bed',index=False,header=False,sep="\t")

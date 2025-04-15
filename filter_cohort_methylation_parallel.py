@@ -15,28 +15,40 @@ from io import StringIO
 sort
 (head -n 1 $cohorttsv && tail -n +2 $cohorttsv | sort -k 1,1 -k2,2n ) > $clean_intsv_name.sorted.tsv
 
-consider intervaltree for large beds
-    
+
 
     Filter a cohort modkit tsv by valid coverage, for aggregating over bed regions. Input bed and cohort tsv should
     be bgzip and tabix'ed, the index is used for quick lookup when running chromsomes in parallel. 
     Also it is faster to intersect the cohort tsv/bed with the region bed for less regions to look at: 
     bedtools intersect -header -wa -a combined_methylation_hap1.tsv.sorted.tsv -b ../small.cpg.bed > indiv.cpgs.inregion.tsv
 
-    Usage:
-    python filter_cohort_methylation_parallel.py -i combined_methylation_hap1.tsv.sorted.tsv.gz -b cpg_hg38.bed.gz
 
-    Optional arguments: 
-        --chromosomes "chr20"  # give it a single chromsome to test on
+    usage: filter_cohort_methylation_parallel.py [-h] -i INPUT_COHORT_TSV -b IN_BED_FILE -o OUTPUT_DIR
 
-        --threads 3            # number of processes to run at a time 
+    Filter positions from the group BED that don't pass coverage or cpg minimum filters.
 
-        -m MIN_COV, --min_cov MIN_COV
-                        Minimum coverage; default=5x.
-        -g MIN_CPGS, --min_cpgs MIN_CPGS
-                                Minimum number of CpGs within a bed region; default=5x.
-        -c AVERAGE_COVERAGE, --average_coverage AVERAGE_COVERAGE
-                                Boolean to determine if every cpg site needs to be > min cov or average across region is > mincov; default True
+    Required arguments:
+      -h, --help            show this help message and exit
+      -i INPUT_COHORT_TSV, --input_cohort_tsv INPUT_COHORT_TSV
+                            Path to the cohort combined input TSV file with header ( must be bgzip and tabix ).
+      -b IN_BED_FILE, --in_bed_file IN_BED_FILE
+                            Path to the bed file region of interest ( must be bgzip and tabix ).
+      -o OUTPUT_DIR, --output_dir OUTPUT_DIR
+                            output directory.
+
+    Optional arguments:
+      -l [CHROMOSOMES ...], --chromosomes [CHROMOSOMES ...]
+                            List of chromosomes to process (optional). If not provided, all chromosomes will be used.
+      -m MIN_COV, --min_cov MIN_COV
+                            Minimum coverage; default=5x.
+      -g MIN_CPGS, --min_cpgs MIN_CPGS
+                            Minimum number of CpGs within a bed region; default=5x.
+      -c AVERAGE_COVERAGE, --average_coverage AVERAGE_COVERAGE
+                            Boolean to determine if every cpg site needs to be > min cov or average across region is > mincov; default True
+      -f WRITE_FAILS, --write_fails WRITE_FAILS
+                            Boolean to determine if the positions that don't pass coverage or min cpg filter are written out; default True
+      -t THREADS, --threads THREADS
+                            threads; default 3.
 
 """
 
@@ -158,8 +170,6 @@ def filter_regions_by_coverage(chrom, in_tsv, in_bed, average_coverage, min_cov,
                     # get average coverage for the region per sample
                     # cov_mean = region_rdata[sample_cov_col].mean()
                     region_coverage_averages.append(np.round(region_rdata[sample_cov_col].mean(),2))
-                    # if cov_mean < min_cov:
-                    #     print(sample_cov_col, cov_mean)
 
                 # check if coverage mean passes fiilter
                 pass_bool, failing_indices = check_min_cov(region_coverage_averages, min_cov)
@@ -230,8 +240,6 @@ def process_chromosomes_in_parallel(output_dir, in_tsv, in_bed, average_coverage
 
     # combine results
     log_time(f'process parallel results')
-    # print('result',results)
-    # print('result[0]', [df for result in results for df in result[0]])
 
     # for i,result in enumerate(results):
     #     print(i,'pass\n', result[0])
@@ -363,11 +371,6 @@ if __name__ == "__main__":
 
     log_time(f'running coverage filtering with: min cpgs: {args.min_cpgs} and min cov: {args.min_cov}')
     process_chromosomes_in_parallel(output_dir, args.input_cohort_tsv, args.in_bed_file, args.average_coverage, args.min_cov, args.min_cpgs, args.chromosomes, args.threads, args.write_fails)
-
-    # TEST ME!
-    # filter_regions_by_coverage(args.innput_cohort_tsv, args.in_bed_file, args.average_coverage, args.min_cov, args.min_cpgs)
-
-
 
 
 
