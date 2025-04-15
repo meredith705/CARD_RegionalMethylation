@@ -32,7 +32,12 @@ filter.py is the location of the ```filter_cohort_methylation_parallel.py``` scr
 Each of the commands in the bash script could be run individually if desired. 
 
 Example Usage with CpG Islands BED: <br>
-``` $ ./organizeMethylBed.sh small.cpg.bed cohort.small.tsv.gz filter_cohort_methylation_parallel.py <COHORT_NAME>``` <br>
+``` 
+$ ./organizeMethylBed.sh small.cpg.bed cohort.small.tsv.gz filter_cohort_methylation_parallel.py <COHORT_NAME>
+
+```
+<br>
+
 The whole genome CpGs are intersected with the bed regions of interst in order to reduce the number of positions analyzed downstream.  <br>
 
 ### Filtering and Aggregation Bash Script Output
