@@ -111,10 +111,17 @@ cohort.small_hap1_tsv_cpg_hg38_bed_tsv_failedCovFilter_5cov_5cpgs_2025-04-12.tsv
 cohort.small_hap1_tsv_cpg_hg38_bed_tsv_filtered_5cov_5cpgs_2025-04-12.tsv
 ```
 <br> 
-The file of positions that passed filters is then passed to bedtools map to average methylation over the input bed regions. <br>
+The file of positions that passed filters is then passed to bedtools map to average methylation over the input bed regions. 
+
+```
+bedtools map -a small.cpg.bed.sorted.tsv.gz -b filter_small.cpg.bed_region/cohort_small_tsv_gz_small_cpg_bed_tsv_filtered_5cov_5cpgs_2025-04-15.tsv -c  5,8,11 -o mean 
+```
+
+The output of the bedtools map command can then be used for age regressions. <br>
 
 
 ## Multivariate Regression with Age
+After filtering for coverage and cpg count the aggregated methylation file can be used for regression  ( the "regional_bedtoolsMapMean" file ). 
 ``` methylAgeRegresser.py``` Runs a multivariate regression on aggregated methylation data on all samples in a cohort. 
 The regression equation is: 
 ``` Methylation ~ Age + Gender + PostMortemInterval + PCs (optional) ``` 
