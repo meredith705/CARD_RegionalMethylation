@@ -303,6 +303,10 @@ def format_run_regression(methylBed, covs, haplotype, alpha, num_pcs, cohort_reg
     meth_bed_autosomes = meth_bed_autosomes.dropna(axis=0)
     log_time(f"Total Regions:{meth_bed.shape[0]}. {meth_bed_autosomes.shape[0]} regions after dropping regions with NaN values")
 
+    if (meth_bed_autosomes.shape[0] == 0):
+        log_time(f"No regions have average methylation values to compute. Exiting now")
+        return
+
     # Run pca
     pca_df = pca(meth_bed_autosomes, covs, cohort_region)
 
