@@ -316,7 +316,8 @@ def format_run_regression(methylBed, covs, haplotype, alpha, num_pcs, cohort_reg
     meth_bed_autosomes_age_pcs = pd.concat([pca_df.iloc[:,:num_pcs], meth_bed_autosomes_age.reset_index()], axis=1)
     meth_bed_autosomes_age_pcs.set_index('index', inplace=True)
     print(meth_bed_autosomes_age_pcs.head())
-    colinearity(meth_bed_autosomes_age_pcs.drop(['Region'], axis=1), cohort_region, output_dir)
+    # colinearity(meth_bed_autosomes_age_pcs.drop(['Region'], axis=1), cohort_region, output_dir)
+    colinearity(meth_bed_autosomes_age_pcs.drop(columns=['Region'], errors='ignore'), cohort_region, output_dir)
 
 
 
