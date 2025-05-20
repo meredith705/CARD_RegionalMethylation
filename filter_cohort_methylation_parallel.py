@@ -349,7 +349,7 @@ if __name__ == "__main__":
         type=int,
         required=False,
         default=3,
-        help="Minimum coverage; default=5x."
+        help="Minimum coverage; default=3x."
     )
 
     parser.add_argument(
