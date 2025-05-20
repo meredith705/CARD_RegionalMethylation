@@ -107,7 +107,8 @@ def filter_regions_by_coverage(chrom, in_tsv, in_bed, average_coverage, min_cov,
         # else:
         #     rdata = pd.read_csv(in_tsv, sep='\t')
     except Exception as e:
-        log_time(f"Error reading files {e}" )
+        log_time(f"Error reading {chrom} files {e}" )
+        return [], [], []
 
     # store all passsing regions in a list
     pass_regions = [] 
