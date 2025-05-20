@@ -70,7 +70,11 @@ def check_min_cov(val_list, min_cov):
     else:
         return True, []
 
-
+def mask_mod_fraction(row, validCov_cols, modFraction_cols, min_cov):
+    for cov_col, mod_col in zip(validCov_cols, modFraction_cols):
+        if row[cov_col] < min_cov:
+            row[mod_col] = np.nan
+    return row
 
 def filter_regions_by_coverage(chrom, in_tsv, in_bed, average_coverage, min_cov, min_cpgs):
     """ average coverage for each input bed region and store pass and failed regions
@@ -84,8 +88,11 @@ def filter_regions_by_coverage(chrom, in_tsv, in_bed, average_coverage, min_cov,
     # query the chromosome from the bgzipped BED file
     cmd = ["tabix", in_tsv, chrom]
     try:
+        # log_time(f'command {cmd}')
         in_tsv_chrom = subprocess.check_output(cmd, text=True)
-        header = subprocess.check_output(f"zcat {in_tsv} | head -1", shell=True, text=True).strip().split("\t")
+        # log_time(f'zcat {in_tsv}')
+        header = subprocess.check_output(f"zcat {in_tsv} | head -1", shell=True, text=True).strip().split("\t")     ## fix before leaving local 
+        # header = subprocess.check_output(f"gzip -dc {in_tsv} | head -1", shell=True, text=True).strip().split("\t")
     except subprocess.CalledProcessError as e:
         print(f"Failed tsv on {chrom}: {e}")
         return chrom, 0
@@ -113,20 +120,21 @@ def filter_regions_by_coverage(chrom, in_tsv, in_bed, average_coverage, min_cov,
 
 
 
-    log_time(f'find avg coverages')
+    log_time(f'filter for coverages')
 
     # Get column names that end with '_validCov'
     validCov_cols = [col for col in rdata.columns if col.endswith("_validCov")] 
     log_time(f'{len(validCov_cols)} samples')
     # get mod fraction columns 
-    # modFraction_cols = [col for col in rdata.columns if col.endswith("_modFraction")] 
+    modFraction_cols = [col for col in rdata.columns if col.endswith("_modFraction")] 
 
     log_time(f'get {chrom} from {in_bed}')
     # query the chromosome from the bgzipped BED file
     cmd = ["tabix", in_bed, chrom]
     try:
         in_bed_chrom = subprocess.check_output(cmd, text=True)
-        bedhead = subprocess.check_output(f"zcat {in_bed} | head -1", shell=True, text=True).strip().split("\t")
+        bedhead = subprocess.check_output(f"zcat {in_bed} | head -1", shell=True, text=True).strip().split("\t")       ## fix before leaving local 
+        # bedhead = subprocess.check_output(f"gzip -dc {in_bed} | head -1", shell=True, text=True).strip().split("\t")
     except subprocess.CalledProcessError as e:
         print(f"Failed bed on {chrom}: {e}")
         return chrom, 0
@@ -147,27 +155,30 @@ def filter_regions_by_coverage(chrom, in_tsv, in_bed, average_coverage, min_cov,
         tokens = line.strip().split()[:3]
         chrom = tokens[0]
         start = int(tokens[1])
-        end = int(tokens[2])
+        end = int(tokens[2]) 
 
         # log_time(f'filtering {chrom}: {start} {end}')
 
+        # get just the cpgs within the bed region 
         # TODO make sure this is #chrom?
         region_rdata = rdata.loc[ (rdata['#chrom']==chrom) &
                                   (rdata['start'] >= start) &
                                     (rdata['end'] <= end) ]
 
+        
         # log_time(f'subset region. df shape: {region_rdata.shape}')
         # check Number of cpgs passes filter
         if region_rdata.shape[0] > min_cpgs:
+            # print('region_rdata',start, end, region_rdata.iloc[:, :6])
 
-            # if average is selected find avg coverage 
+            # if average is selected find avg coverage, default is false
             if average_coverage:
 
-                # log_time(f'averaging coverages')
+                log_time(f'find avg coverages')
                 # make a list to store all the coverage averages per sample 
                 region_coverage_averages = []
                 for sample_cov_col in validCov_cols:
-                    # get average coverage for the region per sample
+                    # get average coverage for the region per sample, round to 2 decimal points
                     # cov_mean = region_rdata[sample_cov_col].mean()
                     region_coverage_averages.append(np.round(region_rdata[sample_cov_col].mean(),2))
 
@@ -188,12 +199,36 @@ def filter_regions_by_coverage(chrom, in_tsv, in_bed, average_coverage, min_cov,
             else:
 
                 # remove rows that don't have valid cov for all samples
-                region_rdata_pass = region_rdata[
-                        region_rdata.apply(lambda row: all(row[col] >= min_cov for col in validCov_cols), axis=1)
-                    ]
+                # region_rdata_pass = region_rdata[
+                    #     region_rdata.apply(lambda row: all(row[col] >= min_cov for col in validCov_cols), axis=1)
+                    # ]
+                # replace methylation values with np.nan if cov col is below threshold
+                # region_rdata[validCov_cols] = region_rdata[validCov_cols].applymap(
+                #                                 lambda x: x if x >= min_cov else np.nan
+                #                                 )
+
+                # region_rdata_pass = region_rdata.apply(
+                #     lambda row: mask_mod_fraction(row, validCov_cols, modFraction_cols, min_cov),
+                #     axis=1)
+
+                # mask individual samples that don't have sufficient coverage 
+                for cov_col, mod_col in zip(validCov_cols, modFraction_cols):
+                    mask = region_rdata[cov_col] < min_cov
+                    region_rdata.loc[mask, mod_col] = "." #np.nan
+                region_rdata_pass = region_rdata
+                
+                # store the cpg sites that 
                 region_rdata_fail = region_rdata[
                         region_rdata.apply(lambda row: all(row[col] < min_cov for col in validCov_cols), axis=1)
                     ]
+
+                # might not be necessary 
+                region_coverage_averages = []
+                for sample_cov_col in validCov_cols:
+                    # get average coverage for the region per sample
+                    # cov_mean = region_rdata[sample_cov_col].mean()
+                    region_coverage_averages.append(np.round(region_rdata[sample_cov_col].mean(),2))
+                region_avg_coverages.append( pd.DataFrame([region_coverage_averages], columns=validCov_cols, index=[f'{chrom}_{start}_{end}']) )
                 
                 # sore passing rows
                 # pass_regions = pd.concat([pass_regions, region_rdata], ignore_index=True)
@@ -203,10 +238,7 @@ def filter_regions_by_coverage(chrom, in_tsv, in_bed, average_coverage, min_cov,
                 if not region_rdata_fail.empty:
                     fail_regions.append(region_rdata_fail)
 
-                # don't loop, iterate
-                # for i, row in region_rdata.itterrows():
-                #     if all(row[col] > min_cov for col in validCov_cols):
-                #         pass_regions.append(region_rdata)
+
         else:
             fail_regions.append(region_rdata)
 
@@ -250,7 +282,7 @@ def process_chromosomes_in_parallel(output_dir, in_tsv, in_bed, average_coverage
     # process parallel results 
     # pass regions are the first df in all lists
     pass_regions_combined = pd.concat([result[0] for result in results], ignore_index=True)
-    # fail regions are the first df in all lists
+    # fail regions are the second df in all lists
     fail_regions_combined = pd.concat([result[1] for result in results], ignore_index=True)
     # cov averages are the first df in all lists
     region_avg_cov_combined = pd.concat([result[2] for result in results], ignore_index=True)
@@ -316,7 +348,7 @@ if __name__ == "__main__":
         "-m","--min_cov",
         type=int,
         required=False,
-        default=5,
+        default=3,
         help="Minimum coverage; default=5x."
     )
 
@@ -325,15 +357,15 @@ if __name__ == "__main__":
         type=int,
         required=False,
         default=5,
-        help="Minimum number of CpGs within a bed region; default=5x."
+        help="Minimum number of CpGs within a bed region; default=3x."
     )
 
     parser.add_argument(
         "-c","--average_coverage",
         type=bool,
         required=False,
-        default=True,
-        help="Boolean to determine if every cpg site needs to be > min cov or average across region is > mincov; default True"
+        default=False,
+        help="Boolean to determine if every cpg site needs to be > min cov or average across region is > mincov; default False"
     )
 
     parser.add_argument(
@@ -370,6 +402,8 @@ if __name__ == "__main__":
         args.chromosomes = subprocess.check_output(["tabix", "-l", args.in_bed_file], text=True).splitlines()
 
     log_time(f'running coverage filtering with: min cpgs: {args.min_cpgs} and min cov: {args.min_cov}')
+    # filter_regions_by_coverage('chr1', args.input_cohort_tsv, args.in_bed_file, args.average_coverage, args.min_cov, args.min_cpgs)
+
     process_chromosomes_in_parallel(output_dir, args.input_cohort_tsv, args.in_bed_file, args.average_coverage, args.min_cov, args.min_cpgs, args.chromosomes, args.threads, args.write_fails)
 
 
