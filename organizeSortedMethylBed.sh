@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 if [ "$#" -ne 4 ]; then
 	echo "Usage: $0 <region.bed> <cohort.tsv> <filter.py> <cohortId>"
@@ -11,16 +12,20 @@ filterScript=$3
 cohort=$4
 
 clean_intsv_name=$(basename "$cohorttsv")
-clean_bed_name=$(basename "$bedregions")
+clean_intsv_name="${clean_intsv_name%%.*}"
+echo clean in tsv name: $clean_intsv_name
+clean_bed_name=$(basename "$bedregions" .bed)
+#clean_bed_name="${clean_bed_name%%.*}"
+echo clean bed name: $clean_bed_name
 
-# if [ ! -f "$clean_intsv_name.sorted.tsv.gz" ]; then
-# 	# sort the input file
-# 	echo "[$(date +"%Y-%m-%d %H:%M:%S")] Starting sort"
-# 	(head -n 1 "$cohorttsv" && tail -n +2 "$cohorttsv" | sort -k 1,1 -k2,2n ) | bgzip -@16 > $clean_intsv_name.sorted.tsv.gz
-# 	echo "[$(date +"%Y-%m-%d %H:%M:%S")] sorted and bgzip-ed"
-# else
-# 	echo "$clean_intsv_name.sorted.tsv.gz already exists."
-# fi
+if [ ! -f "$clean_intsv_name.sorted.tsv.gz" ]; then
+ 	# sort the input file
+ 	echo "[$(date +"%Y-%m-%d %H:%M:%S")] Starting sort"
+ 	(head -n 1 "$cohorttsv" && tail -n +2 "$cohorttsv" | sort -k 1,1 -k2,2n ) | bgzip -@16 > $clean_intsv_name.sorted.tsv.gz
+ 	echo "[$(date +"%Y-%m-%d %H:%M:%S")] sorted and bgzip-ed"
+else
+ 	echo "$clean_intsv_name.sorted.tsv.gz already exists."
+fi
 
 if [ ! -f "$clean_intsv_name.$clean_bed_name.tsv.gz" ]; then
 	echo "[$(date +"%Y-%m-%d %H:%M:%S")] intersect $cohorttsv with $bedregions "
