@@ -291,6 +291,8 @@ def process_chromosomes_in_parallel(output_dir, in_tsv, in_bed, write_croms, ave
 
 
     # process parallel results 
+    print('results:', results)
+    print('results[0]')
     # pass regions are the first df in all lists
     pass_regions_combined = pd.concat([result[0] for result in results], ignore_index=True)
     # fail regions are the second df in all lists
