@@ -76,7 +76,7 @@ def mask_mod_fraction(row, validCov_cols, modFraction_cols, min_cov):
             row[mod_col] = np.nan
     return row
 
-def filter_regions_by_coverage(chrom, in_tsv, in_bed, average_coverage, min_cov, min_cpgs):
+def filter_regions_by_coverage(chrom, in_tsv, in_bed, output_dir, average_coverage, min_cov, min_cpgs, write_per_chrom, write_fails):
     """ average coverage for each input bed region and store pass and failed regions
         
         Consider a method to remove samples with poor coverage..
@@ -259,17 +259,27 @@ def filter_regions_by_coverage(chrom, in_tsv, in_bed, average_coverage, min_cov,
     region_avg_cov_df = pd.concat(region_avg_coverages, ignore_index=True)
     region_avg_cov_df.index.name = "#RegionID"
 
+    if write_per_chrom:
+        log_time(f'write out {chrom} filtered df in {output_dir}')
+        if not combined_pass_regions.empty:
+            # combined_pass_regions = pd.concat(pass_regions, ignore_index=True)
+            outfile = f"{output_dir}/{chrom}_filtered_{min_cov}cov_{min_cpgs}cpgs_{datetime.now().strftime('%Y-%m-%d')}.tsv"
+            combined_pass_regions.to_csv(outfile, sep="\t", index=False, header=True)
+            print(f"Filtered regions written to {outfile} with {combined_pass_regions.shape[0]} rows.")
+        else:
+            print("No regions passed the filter.")
+
 
     return combined_pass_regions, combined_fail_regions, region_avg_cov_df
 
 
 
 # process each chromosome in parallel
-def process_chromosomes_in_parallel(output_dir, in_tsv, in_bed, average_coverage, min_cov, min_cpgs, chromosomes, nprocesses, write_fails):
+def process_chromosomes_in_parallel(output_dir, in_tsv, in_bed, write_croms, average_coverage, min_cov, min_cpgs, chromosomes, nprocesses, write_fails):
 
     # create a pool of worker processes
     with Pool(processes=nprocesses) as pool:
-        results = pool.starmap(filter_regions_by_coverage, [(chrom, in_tsv, in_bed, average_coverage, min_cov, min_cpgs) for chrom in chromosomes])
+        results = pool.starmap(filter_regions_by_coverage, [(chrom, in_tsv, in_bed, output_dir, average_coverage, min_cov, min_cpgs, write_croms,write_fails) for chrom in chromosomes])
 
     # combine results
     log_time(f'process parallel results')
@@ -377,6 +387,14 @@ if __name__ == "__main__":
         help="Boolean to determine if the positions that don't pass coverage or min cpg filter are written out; default True"
     )
 
+    parser.add_argument(
+        "-w","--write_croms",
+        type=bool,
+        required=False,
+        default=False,
+        help="Boolean to determine if filtered positions per chromosome are written out; default False"
+    )
+
     # add argument for threads to use, number of chr's to run at once
     parser.add_argument(
         "-t","--threads",
@@ -405,7 +423,7 @@ if __name__ == "__main__":
     log_time(f'running coverage filtering with: min cpgs: {args.min_cpgs} and min cov: {args.min_cov}')
     # filter_regions_by_coverage('chr1', args.input_cohort_tsv, args.in_bed_file, args.average_coverage, args.min_cov, args.min_cpgs)
 
-    process_chromosomes_in_parallel(output_dir, args.input_cohort_tsv, args.in_bed_file, args.average_coverage, args.min_cov, args.min_cpgs, args.chromosomes, args.threads, args.write_fails)
+    process_chromosomes_in_parallel(output_dir, args.input_cohort_tsv, args.in_bed_file, args.write_croms, args.average_coverage, args.min_cov, args.min_cpgs, args.chromosomes, args.threads, args.write_fails)
 
 
 
