@@ -158,7 +158,7 @@ def filter_regions_by_coverage(chrom, in_tsv, in_bed, output_dir, average_covera
         start = int(tokens[1])
         end = int(tokens[2]) 
 
-        # log_time(f'filtering {chrom}: {start} {end}')
+        #log_time(f'filtering {chrom}: {start} {end}')
 
         # get just the cpgs within the bed region 
         # TODO make sure this is #chrom?
