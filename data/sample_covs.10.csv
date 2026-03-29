@@ -1,0 +1,10 @@
+SampleId,AgeDeath,Sex at Birth,Ethnicity,Race,Region,PMI
+SAMPLE_25,38.5,Male,Martian,EastMartian,Tissue,41.0
+SAMPLE_26,64.8,Male,Martian,EastMartian,Tissue,35.5
+SAMPLE_27,61.7,Male,Martian,EastMartian,Tissue,17.0
+SAMPLE_28,26.8,Male,Martian,EastMartian,Tissue,23.0
+SAMPLE_29,55.1,Male,Martian,EastMartian,Tissue,47.5
+SAMPLE_30,48.8,Male,Martian,EastMartian,Tissue,12.5
+SAMPLE_31,17.7,Male,Martian,EastMartian,Tissue,33.0
+SAMPLE_32,62.5,Female,Martian,EastMartian,Tissue,20.5
+SAMPLE_33,46.5,Female,Martian,EastMartian,Tissue,99.5
