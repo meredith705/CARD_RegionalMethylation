@@ -25,7 +25,8 @@ echo clean bed name: $clean_bed_name
 if [ ! -f "$clean_intsv_name.sorted.tsv.gz" ]; then
  	# sort the input file
  	echo "[$(date +"%Y-%m-%d %H:%M:%S")] Starting sort"
- 	(head -n 1 "$cohorttsv" && tail -n +2 "$cohorttsv" | sort -k 1,1 -k2,2n ) | bgzip -@16 > $clean_intsv_name.sorted.tsv.gz
+ 	#(head -n 1 "$cohorttsv" && tail -n +2 "$cohorttsv" | sort -k 1,1 -k2,2n )
+ 	{ zcat "$cohorttsv" | { read header; echo "$header"; sort -k1,1 -k2,2n; }; } | bgzip -@16 > $clean_intsv_name.sorted.tsv.gz
  	echo "[$(date +"%Y-%m-%d %H:%M:%S")] sorted and bgzip-ed"
 else
  	echo "$clean_intsv_name.sorted.tsv.gz already exists."
