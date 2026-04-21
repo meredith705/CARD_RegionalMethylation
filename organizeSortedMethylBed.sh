@@ -11,13 +11,17 @@ cohorttsv=$2
 filterScript=$3
 cohort=$4
 
+# get the prefix of the input tsv
 clean_intsv_name=$(basename "$cohorttsv")
 clean_intsv_name="${clean_intsv_name%%.*}"
 echo clean in tsv name: $clean_intsv_name
+
+# get the prefix of the input bed file
 clean_bed_name=$(basename "$bedregions" .bed)
 #clean_bed_name="${clean_bed_name%%.*}"
 echo clean bed name: $clean_bed_name
 
+# check that the input tsv is sorted 
 if [ ! -f "$clean_intsv_name.sorted.tsv.gz" ]; then
  	# sort the input file
  	echo "[$(date +"%Y-%m-%d %H:%M:%S")] Starting sort"
@@ -27,13 +31,24 @@ else
  	echo "$clean_intsv_name.sorted.tsv.gz already exists."
 fi
 
+# check that the input bed is sorted and indexed
+if [ ! -f "$clean_bed_name.sorted.tsv.gz.tbi" ]; then
+	echo "[$(date +"%Y-%m-%d %H:%M:%S")] Sort, bgZip and index $clean_bed_name bed regions"
+	(head -n 1 $bedregions && tail -n +2 $bedregions | sort -k 1,1 -k2,2n ) | bgzip -@8 > $clean_bed_name.sorted.tsv.gz
+	tabix -p bed $clean_bed_name.sorted.tsv.gz
+else
+	echo "$clean_bed_name.sorted.tsv.gz.tbi already sorted and indexed "
+fi
+
+# intersect the sorted input files with each other 
 if [ ! -f "$clean_intsv_name.$clean_bed_name.tsv.gz" ]; then
-	echo "[$(date +"%Y-%m-%d %H:%M:%S")] intersect $cohorttsv with $bedregions "
-	bedtools intersect -header -wa -a $cohorttsv -b $bedregions | bgzip -@16 > $clean_intsv_name.$clean_bed_name.tsv.gz
+	echo "[$(date +"%Y-%m-%d %H:%M:%S")] intersect $clean_intsv_name.sorted.tsv.gz with $clean_bed_name.sorted.tsv.gz "
+	bedtools intersect -header -wa -a $clean_intsv_name.sorted.tsv.gz -b $clean_bed_name.sorted.tsv.gz | awk '!/^#/ { print | "sort -k1,1V -k2,2n"; next } { print }' | bgzip -@16 > $clean_intsv_name.$clean_bed_name.tsv.gz
 else
 	echo "$clean_intsv_name.$clean_bed_name.tsv.gz already intersected "
 fi
 
+# index the intersected file, maybe sort it? 
 if [ ! -f "$clean_intsv_name.$clean_bed_name.tsv.gz.tbi" ]; then
 	echo "[$(date +"%Y-%m-%d %H:%M:%S")] Starting index"
 	tabix -p bed $clean_intsv_name.$clean_bed_name.tsv.gz
@@ -41,13 +56,7 @@ else
 	echo "$clean_intsv_name.$clean_bed_name.tsv.gz.tbi already indexed "
 fi
 
-if [ ! -f "$clean_bed_name.sorted.tsv.gz.tbi" ]; then
-	echo "[$(date +"%Y-%m-%d %H:%M:%S")] Sort, bgZip and index bed regions"
-	(head -n 1 $bedregions && tail -n +2 $bedregions | sort -k 1,1 -k2,2n ) | bgzip -@8 > $clean_bed_name.sorted.tsv.gz
-	tabix -p bed $clean_bed_name.sorted.tsv.gz
-else
-	echo "$clean_bed_name.sorted.tsv.gz.tbi already sorted and indexed "
-fi
+
 
 # Filter regions with low coverage in any sample
 echo "[$(date +"%Y-%m-%d %H:%M:%S")] Starting coverage filtering"
