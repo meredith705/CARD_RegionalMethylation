@@ -280,7 +280,7 @@ if __name__ == "__main__":
     # if no chromosomes are provided, use all chromosomes from the BED
     if args.chromosomes is None:
         # get chromosome list from tabix 
-        args.chromosomes = subprocess.check_output(["tabix", "-l", args.in_bed_file], text=True).splitlines()
+        args.chromosomes = subprocess.check_output(["tabix", "-l", args.input_h1_cohort_bed], text=True).splitlines()
 
     log_time(f'running methylation merge with min cov: {args.min_cov}')
 
