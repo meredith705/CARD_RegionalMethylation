@@ -43,12 +43,21 @@ from io import StringIO
 """
 
 
-def log_time(message):
+def log_time_top(message):
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}")
+
+def get_logger(chrom):
+    log_file = open(f"{chrom}.log", "a")
+    def log_time(message):
+        log_file.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}" + "\n")
+        log_file.flush()
+    return log_time, log_file
 
 
 
 def combine_haplotypes(chrom, f1, f2, f3, output_dir, cohort, mincov, write_per_chrom):    
+    # set up log file per chrom
+    log_time, log_file = get_logger(chrom)
 
     log_time(f'process {chrom}')
     files = [f1, f2, f3]
@@ -275,14 +284,14 @@ if __name__ == "__main__":
     # Create output directory
     output_dir = args.output_dir
     os.makedirs(output_dir, exist_ok=True)
-    log_time(f"Output directory ensured at: {output_dir}")
+    log_time_top(f"Output directory ensured at: {output_dir}")
 
     # if no chromosomes are provided, use all chromosomes from the BED
     if args.chromosomes is None:
         # get chromosome list from tabix 
         args.chromosomes = subprocess.check_output(["tabix", "-l", args.input_h1_cohort_bed], text=True).splitlines()
 
-    log_time(f'running methylation merge with min cov: {args.min_cov}')
+    log_time_top(f'running methylation merge with min cov: {args.min_cov}')
 
     process_chromosomes_in_parallel(output_dir, args.input_h1_cohort_bed, args.input_h2_cohort_bed, args.input_ungrouped_cohort_bed, args.cohort_name, int(args.min_cov), args.write_croms, args.chromosomes, args.threads)
 
