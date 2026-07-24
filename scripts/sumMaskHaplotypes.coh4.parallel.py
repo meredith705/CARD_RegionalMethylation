@@ -176,6 +176,8 @@ def combine_haplotypes(chrom, f1, f2, f3, output_dir, cohort, mincov, write_per_
         log_time(f'write out df to {output_dir}/{outfile}')
         # Write output to  file
         summed.to_csv(f'{output_dir}/{outfile}', sep="\t", index=False, header=True, chunksize=100000) #, compression="gzip")
+        log_time(f"finished {chrom}")
+        
     else:
         log_time(f"finished {chrom}")
 
@@ -190,14 +192,14 @@ def process_chromosomes_in_parallel(output_dir, input_h1_cohort_bed, input_h2_co
         results = pool.starmap(combine_haplotypes, [(chrom, input_h1_cohort_bed, input_h2_cohort_bed, input_ungrouped_cohort_bed, output_dir,cohort, min_cov, write_croms) for chrom in chromosomes])
 
     # combine results
-    log_time(f'process parallel results')
+    log_time_top(f'process parallel results')
 
     combined_meth = pd.concat([result for result in results], ignore_index=True)
 
-    log_time(f'write out combined data')
+    log_time_top(f'write out combined data')
     # write out the filtered dataframe
     outfile = f"{cohort}_mergedMethylation_{datetime.now().strftime('%Y-%m-%d')}.gzip.tsv.gz"
-    log_time(f'write out df to {outfile}')
+    log_time_top(f'write out df to {outfile}')
     # Write output to  file
     combined_meth.to_csv(f'{output_dir}/{outfile}', sep="\t", index=False, header=True, chunksize=100000, compression="gzip")
     subprocess.run(f"mv {output_dir}/{outfile} {output_dir}/{outfile}.tmp.gz && bgzip -d {output_dir}/{outfile}.tmp.gz | bgzip > {output_dir}/{outfile}", shell=True, check=True)
