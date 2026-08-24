@@ -14,6 +14,7 @@ import bgzip
 from matplotlib.lines import Line2D
 import seaborn as sns
 from datetime import datetime
+# import plots as p
 
 
 def make_regional_bed_directories(directory_path, cohort):
@@ -285,6 +286,43 @@ def plot_cov_mod(cov_shapes, mod_shapes, directory_path, cohort):
     plt.tight_layout()
     fig.savefig(directory_path+"/"+cohort.upper()+"_cov_avgMod.png",dpi=250)
     plt.close(fig)
+
+def plot_heatmap(dfm, cohort, directory_path, cov, measurement="Average Mod", col_prefix="avgMod_", xls="chrom"):
+    """
+        plots a heatmap using matplotlib imshow, including a color bar.
+
+        Input:
+        -dfm: a dataframe of values
+        -cols
+
+    """
+    # heatmap of regional methylaiton
+    chromosome_names = ['chr' + str(i) for i in range(1, 23)] + ['X', 'Y']
+    # Select only columns that match {col_prefix}+{COHORT}
+    cols = [f for f in dfm.columns if f[:7 + len(cohort)] == col_prefix + cohort.upper()]
+
+    fig, ax = plt.subplots(figsize=(12, 12))
+    im = ax.imshow(dfm[cols].T, aspect='auto')
+    # im = ax.imshow(nabec_dfm_cov.loc['chr14'][cols[0:50]].iloc[:50,:].T , aspect='auto')
+    # im = ax.imshow(nabec_dfm_cov.loc['chrX'][cols[0:10]].T , aspect='auto')
+    # ax.set_yscale('log')
+
+    #     xlabels = [dfm.index.get_level_values("start")[int(t)] for t in ax.get_xticks()[1:-1]  ]
+    xlabels = [dfm.index.get_level_values(xls)[int(t)] for t in ax.get_xticks()[1:-1]  ]
+    print(xlabels)
+
+    ax.figure.colorbar(im, ax=ax, label=str(directory_path) + " " + str(measurement), orientation="vertical")
+
+    ax.set_yticks(np.arange(len(cols)), labels=[("_").join(c.split("_")[1:]) for c in cols], fontsize=5)
+    # ax.set_yticks(np.arange(len(cols)), labels=ages, fontsize=6, rotation=0)
+    ax.set_xticklabels(["0"] + xlabels + ["00"])
+    #     print("xticks?", ax.get_xticks()[1:-1],ax.get_xticklabels(),int(ax.get_xticks()[1]), dfm.index.get_level_values("start")[int(ax.get_xticks()[1])] )
+
+    ax.set_title(str(directory_path) + " " + str(measurement) + " " + cohort + " (cov" + str(cov) + ")", fontsize=16)
+    plt.show()
+    # ax.grid(True, which='both', color='black', linewidth=.5)
+    outfile = ("_").join( [cohort.upper(), directory_path,col_prefix[:-1], "heatmap.png"] )
+    fig.savefig(directory_path+"/"+outfile, dpi=450)
     
 def coverage_kneePoint_derivitive_analysis(coverage_data, cohort, directory_path):
     # Extract the first numbers from each tuple
