@@ -1,0 +1,606 @@
+#!/usr/bin/env python3
+
+import os
+import argparse
+import io
+import gzip
+import math
+import pandas as pd
+import numpy as np
+import tarfile
+import matplotlib.pyplot as plt
+import pysam
+import bgzip
+from matplotlib.lines import Line2D
+import seaborn as sns
+from datetime import datetime
+
+
+def make_regional_bed_directories(directory_path, cohort):
+    """ check for existance of regionally named directory """
+    # verify existance 
+    if not (os.path.exists(directory_path) and os.path.isdir(directory_path)):
+        print('making', directory_path, 'directory for cohorts', cohort)
+        # Specify the directory path
+        nested_directory_path = f"{directory_path}/{cohort}"
+
+        # Create the directory
+        try:
+            os.makedirs(nested_directory_path)
+            print(f"Directory '{nested_directory_path}' created successfully")
+        except FileExistsError:
+            print(f"Directory '{nested_directory_path}' already exists")
+
+    else:
+        # just print the contents of directory 
+        print(directory_path, 'directory contents for cohort', cohort,"\n\t", ('\n\t').join(os.listdir(directory_path)) )
+        print(cohort+"_"+directory_path+"_calcMeth.tsv")
+        if os.path.exists(directory_path+"/"+cohort+"_"+directory_path+"_calcMeth.tsv"):
+            return True
+    return False
+
+def write_out_dataframe(df, directory_path, cohort, delimiter="\t", suffix="_avgmod.bed", 
+                        includeHeader = True, includeIndex = True):
+    """ Make tsv's or beds from bedmethyls """
+    output_path = directory_path+"/"+cohort+"_"+directory_path+suffix
+    print('writing to :', output_path)
+    df.to_csv(output_path, 
+                           sep=delimiter,
+                           header=includeHeader, 
+                           index=includeIndex)
+
+def write_coverage_cutoff_dataframe(cov_dfm, directory_path, cohort, bed_columns, cov_suffix="cov5"):
+    """ takes the coverage dataframe and outputs cov filtered group bed. But bedtools map doesn't have 
+    coverate information like this. Depreciated until old method developed. 
+
+    # there is no haplotype separation currently 
+    # isolate hap1 and 2 methylation
+    #cov_dfm_avgmod_h1 = isolate_avgMod_cols(cov_dfm, cohort, bed_columns, field="avgMod_hap1_")
+    #write_out_dataframe(cov_dfm_avgmod_h1, 
+    #                    directory_path, cohort, suffix="_"+cov_suffix+"_avgmod_hap1.bed")
+
+    # Haplotype 2
+    #cov_dfm_avgmod_h2 = isolate_avgMod_cols(cov_dfm, cohort, bed_columns, field="avgMod_hap2_")
+
+    #write_out_dataframe(cov_dfm_avgmod_h2, 
+    #                    directory_path, cohort, suffix="_"+cov_suffix+"_avgmod_hap2.bed")
+    
+
+    write_out_dataframe(isolate_avgMod_cols(cov_dfm, cohort, bed_columns ), 
+                        directory_path, cohort, suffix="_"+cov_suffix+".bed")
+    """
+    print("bedtools map doesn't give coverage cutoffs")
+          
+def remove_duplicate_columns(df):
+    """
+    Remove duplicate columns from the DataFrame.
+    """
+    # Transpose the DataFrame to work with rows
+    transposed_df = df.transpose()
+
+    # Drop duplicate rows (columns in the original DataFrame)
+    unique_transposed_df = transposed_df.drop_duplicates()
+    
+    # Transpose back to the original shape  
+    result_df = unique_transposed_df.transpose()
+
+    return result_df
+        
+def isolate_avgMod_cols(dfm1, cohort, regional_bed_columns, field="avgMod_" ):
+    # isolate avgMod columns
+    prefix = field + cohort.upper()
+    cols = regional_bed_columns+[f for f in dfm1.columns 
+                                 if f[:len(prefix)] == prefix ]
+    
+    cohort_dfm_avgmod = dfm1.loc[:,tuple(cols)]
+    
+    # move bed table information into the dataframe index
+    if len(regional_bed_columns)>0:       
+        # move bed columns to index
+        print('move cols to index',regional_bed_columns)
+        cohort_dfm_avgmod.set_index(regional_bed_columns, inplace=True)
+        
+        # change the datatype of all calls back to floats 
+        all_cols = (f for f in cohort_dfm_avgmod.columns)
+        cohort_dfm_avgmod.loc[:,all_cols]=cohort_dfm_avgmod.loc[:,all_cols].astype({element: float for element in all_cols})
+    
+    return cohort_dfm_avgmod
+
+def clean_df_write_out_files(cohort_dfm, cohort, num_samples, regional_bed_columns, 
+                             directory_path, extrastr="", write_files=True):
+    """ Removes duplicated input columns in group dataframe. 
+        Writes out a group bed file with desired regiona_bed_columns and avgMod_, 
+            and avgMod_hap1 and avgMod_hap2 for each individual. 
+        Writes out the group dataframe as a tsv. 
+        
+        Returns: A reduced bedmethyl group dataframe for individuals in the terra table
+    """
+    print('cohort DataFrame shape', cohort_dfm.shape, cohort_dfm.shape[1]/num_samples, 'columns per sample' )
+    
+    # remove the repeated bed columns
+    cohort_dfm_no_dups = remove_duplicate_columns(cohort_dfm)
+
+    print('after removing duplicate columns:\n', cohort_dfm_no_dups.shape, 
+          (cohort_dfm_no_dups.shape[1])/num_samples, 'columns per sample' )
+    
+    if write_files:
+        # write out the whole thing as a tsv
+        write_out_dataframe(cohort_dfm_no_dups, directory_path, cohort+extrastr, suffix="_calcMeth.tsv", 
+                            includeIndex = False)
+    
+    # isolate avgMod columns DON'T DO THIS IT IS UNFILTERED AS OF
+    # cohort_dfm_avgmod= isolate_avgMod_cols(cohort_dfm_no_dups, cohort,regional_bed_columns )
+
+    # print('just avgmod per sample:\n', cohort_dfm_avgmod.shape, 
+    #       (cohort_dfm_avgmod.shape[1])/num_samples, 'columns per sample')
+    # if write_files: dont write this out it is UNFILTERED
+    #     write_out_dataframe(cohort_dfm_avgmod, directory_path, cohort+'_unfiltered')
+    
+#     # isolate hap1 and 2 methylation
+#     cohort_dfm_avgmod_h1= isolate_avgMod_cols(cohort_dfm_no_dups, cohort, regional_bed_columns, field="avgMod_hap1_")
+#     if write_files:
+#         write_out_dataframe(cohort_dfm_avgmod_h1, directory_path, cohort + extrastr, suffix="_avgmod_hap1.bed")
+
+#     # Haplotype 2
+#     cohort_dfm_avgmod_h2 = isolate_avgMod_cols(cohort_dfm_no_dups, cohort, regional_bed_columns, field="avgMod_hap2_")
+#     if write_files:
+#         write_out_dataframe(cohort_dfm_avgmod_h2, directory_path, cohort + extrastr, suffix="_avgmod_hap2.bed")
+
+#     print('hap shapes', cohort_dfm_avgmod_h1.shape, cohort_dfm_avgmod_h2.shape)
+#     return cohort_dfm_no_dups, cohort_dfm_avgmod, cohort_dfm_avgmod_h1, cohort_dfm_avgmod_h2
+    return cohort_dfm_no_dups
+        
+def localize(ttable_df, field, directory_path, cohort, read_func):
+    """ Bring files to this workspace and load into a dataframe 
+        Returns: A dictionary of bedmethyl dataframes for individuals in the terra table
+    """
+    
+    # Create a dictionary to hold individual sample DataFrames 
+    gBEDdict = {}
+    # set the location to store files 
+    directory = directory_path+'/'+cohort+'/'
+    # loop through all the files for the field of interest
+    for i, row in ttable_df.iterrows():
+        # confirm that the file exists in this cell of the table
+        b = row[field]
+        if type(b)!=float and len(b)>0: 
+            # isolate the file name from the gs link
+            fname = b.split("/")[-1]
+    #         samplename = ("_").join(fname.split("_")[1:4])
+
+            # if the file alread exists store it in a sample dataframe
+            if os.path.isfile(directory+fname):
+                gBEDdict[str(i)] = read_func(directory+fname, i)
+            else:
+                print('localizing:', fname)
+                # quietly copy and get read & asm data from shasta log, then delete
+                # !gsutil -q cp {b} {directory_path}/{cohort}/{fname}
+                result = subprocess.run(['gsutil', '-q', 'cp', f'{directory_path}/{cohort}/{fname}'], capture_output=True, text=True)
+
+                gBEDdict[str(i)] = read_func(directory+fname, i)
+#                 print('dict\n',gBEDdict[str(i)].head(),'cols',gBEDdict[str(i)].columns)
+
+    print(cohort,'samples:',len(gBEDdict.keys()) )
+    # wise to remove the cohort directories here
+#     !rm -rf {directory_path}/{cohort}
+    
+    return gBEDdict
+
+def coverage_and_avgMeth_distributions(dfm, cohort, directory_path):
+    """ depreciated until old method is developed """
+    # how many genes are covered by at least x reads
+    cov_shapes=[]
+
+    for i in np.arange(-1,40):
+        # set Coverage minmum 
+        min_value = i
+        field = 'totalCov_'+cohort.upper()
+
+        # make query string
+        field_filter = ['`'+str(f)+'`'+'>'+str(min_value) for f in dfm.columns if f[:len(field)] == field]
+        filter_string = ' & '.join(field_filter)
+
+        dfm_tcov = dfm.query(filter_string)
+        cov_shapes.append(dfm_tcov.shape)
+    
+    # average methylation for each bed entry
+    avgmod_shapes = []
+
+    for i in np.arange(-1,100):
+        # set Methylation minimum 
+        min_value = i
+        nfield = 'avgMod_'+cohort.upper()
+
+        # make query string
+        field_filter = ['`'+str(f)+'`'+'>='+str(min_value) for f in dfm.columns if f[:len(nfield)] == nfield]
+        filter_string = ' & '.join(field_filter)
+        dfm_tmod = dfm.query(filter_string)
+        avgmod_shapes.append(dfm_tmod.shape)
+    
+    # maybe write this data out to a file also
+    plot_cov_mod(cov_shapes, avgmod_shapes, directory_path, cohort)
+    
+    return cov_shapes, avgmod_shapes
+
+def ratio_and_avgMeth_distributions(dfm, cohort, directory_path, sufix):
+    # how many genes are covered by at least x reads
+    cov_shapes=[]
+
+    for i in np.arange(-1,1.25,0.25):
+        # set Coverage minmum 
+        min_value = i
+        field = 'ratio_'+cohort.upper()
+
+        # make query string
+        field_filter = ['`'+str(f)+'`'+'<='+str(min_value) for f in dfm.columns if f[:len(field)] == field]
+        filter_string = ' & '.join(field_filter)
+        if len(filter_string) > 0:
+            dfm_tcov = dfm.query(filter_string,engine='python')
+            cov_shapes.append(dfm_tcov.shape)
+        else:
+            cov_shapes.append([0,0])
+    
+    # average methylation for each bed ƒun
+    avgmod_shapes = []
+
+    for i in np.arange(-1,100):
+        # set Methylation minimum 
+        min_value = i
+        nfield = 'avgMod_'+cohort.upper()
+
+        # make query string
+        field_filter = ['`'+str(f)+'`'+'>='+str(min_value) for f in dfm.columns if f[:len(nfield)] == nfield]
+        filter_string = ' & '.join(field_filter)
+        if len(filter_string) > 0:
+            dfm_tmod = dfm.query(filter_string,engine='python')
+            avgmod_shapes.append(dfm_tmod.shape)
+        else:
+            avgmod_shapes.append(0)
+        
+    
+    # maybe write this data out to a file also
+    plot_cov_mod(cov_shapes, avgmod_shapes, directory_path, cohort, suffix)
+    
+    return cov_shapes, avgmod_shapes
+
+def plot_cov_mod(cov_shapes, mod_shapes, directory_path, cohort):
+    fig, ax = plt.subplots(1,2,figsize=(12,6))
+
+    # Check coverage cutoff ratios for this region
+    ax[0].plot(np.arange(-1,1.25,0.25),[s[0] for s in cov_shapes])
+    ax[0].set_ylabel("Number "+directory_path)
+    ax[0].set_xlabel("Ratio's for Region")
+    ax[0].set_title("Number of "+directory_path+" by Filter Ratios "+cohort.upper() )
+    ax[0].grid()
+    ax[0].legend([cohort.upper()], prop ={'size': 10})
+
+    # modbatools avg meth for promoters.
+    ax[1].plot(np.arange(-1,(len(mod_shapes)-1)),[s[0] for s in mod_shapes])
+    ax[1].set_ylabel("Number of "+directory_path)
+    ax[1].set_xlabel("Average Mod for Region")
+    ax[1].set_title("Number of "+directory_path+" by Average Modification "+cohort.upper())
+#     ax[1].set_yscale("log")
+    ax[1].grid()
+    ax[1].legend([cohort.upper()], prop ={'size': 10})
+    plt.tight_layout()
+    fig.savefig(directory_path+"/"+cohort.upper()+"_cov_avgMod.png",dpi=250)
+    plt.close(fig)
+    
+def coverage_kneePoint_derivitive_analysis(coverage_data, cohort, directory_path):
+    # Extract the first numbers from each tuple
+    first_numbers = [item[0] for item in coverage_data]
+
+    # Calculate the derivative of the first numbers
+    derivative = np.gradient(first_numbers)
+
+    # Find the index corresponding to the maximum absolute derivative
+    knee_point_index = np.argmax(np.abs(derivative))
+    
+    # Plot the data, derivative, and knee point
+    plt.figure(figsize=(10, 6))
+
+    plt.subplot(2, 1, 1)
+    plt.plot(first_numbers, label='Data')
+    plt.scatter(knee_point_index, first_numbers[knee_point_index], color='red', label='Knee Point')
+    plt.title(f"The knee point is at coverage {knee_point_index}, corresponding to the value {first_numbers[knee_point_index]}.")
+    plt.xlabel('Index')
+    plt.ylabel('First Number')
+    plt.legend()
+
+    plt.subplot(2, 1, 2)
+    plt.plot(derivative, label='Derivative', color='green')
+    plt.scatter(knee_point_index, derivative[knee_point_index], color='red', label='Knee Point')
+    plt.title('Derivative of the Data and Knee Point')
+    plt.xlabel('Coverage')
+    plt.ylabel('Derivative')
+    plt.axhline(0, color='black', linestyle='--', linewidth=0.8)  # Horizontal line at y=0
+    plt.legend()
+
+    plt.tight_layout()
+    plt.savefig(cohort.upper()+"_"+directory_path+"_coverageCutoff_calculation.png", dpi=300)
+    plt.close()
+    
+    return knee_point_index
+    
+def coverage_cutoffs(dfm, cohort, cov_min = 5, prefix="totalCov_"):
+    """ limits to coverage of 5. 
+        Input DataFrame must include totalCov field
+        
+    """
+    field = prefix+cohort.upper()
+    print('field:',field)
+    # make query string for coverage cutoffs
+    field_filter = ['`'+str(f)+'`'+'>'+str(cov_min) for f in dfm.columns if f[:len(field)] == field]
+    filter_string = ' & '.join(field_filter)
+    print('field_filter',field_filter)
+
+    return dfm.query(filter_string)
+
+def ratio_cutoffs(dfm, cohort, ratio_min = 0.9, prefix="ratio_"):
+    """ limits to promoters that had coverage of 5 and a minimum of 10 cpgs in the region. 
+        Input DataFrame must include ratio_ field
+        
+    """
+    field = prefix+cohort.upper()
+    print('field:',field)
+    # make query string for coverage cutoffs
+    field_filter = ['`'+str(f)+'`'+'>'+str(ratio_min) for f in dfm.columns if f[:len(field)] == field]
+
+    filter_string = ' & '.join(field_filter)
+
+
+    return dfm.query(filter_string,engine='python')
+
+def regional_sample_coverage(dfm, filter_threshold = 0.75):
+    """ 
+        Filter out regions that aren't covered by a minimum number of samples
+        default 75% of samples in cohort. 
+        Input dataframe must be only numeric values. 
+    """
+    
+    
+    # Check if the DataFrame contains numerical data
+    if pd.api.types.is_numeric_dtype(dfm.dtypes):
+        raise ValueError("Input DataFrame must contain numerical data.")
+        
+    # ensure that all datatypes are floats befor converting -1's to nan's
+    all_cols = (f for f in dfm.columns)
+    dfm.loc[:,all_cols] = dfm.loc[:,all_cols].astype({element: float for element in all_cols})
+
+    # Set a threshold of the number of samples that need to cover a region to be includede
+    threshhold = filter_threshold * dfm.shape[1]
+    # Replace -1's with np.nan floats
+    dfm.replace(-1, np.nan, inplace=True)
+    # Filter rows based on threshold ratio
+    filtered_dfm = dfm.dropna(thresh=threshhold)
+    
+    print('removed',dfm.shape[0]-filtered_dfm.shape[0], 'regions')
+    
+    return filtered_dfm
+    
+def plot_entries_per_chr(bed_df, directory_path, cohort):
+    
+    # Create a mapping between chromosome strings and integer values
+    chromosome_mapping = {'chr1': 1, 'chr2': 2, 'chr3': 3, 'chr4': 4, 'chr5': 5, 'chr6': 6, 'chr7': 7, 'chr8': 8,
+                              'chr9': 9, 'chr10': 10, 'chr11': 11, 'chr12': 12, 'chr13': 13, 'chr14': 14, 'chr15': 15,
+                              'chr16': 16, 'chr17': 17, 'chr18': 18, 'chr19': 19, 'chr20': 20, 'chr21': 21, 'chr22': 22,
+                              'chrX': 23, 'chrY': 24, 'chrM':25}
+
+    # Create a reverse mapping for labeling the y-axis
+    reverse_chromosome_mapping = {v: k for k, v in chromosome_mapping.items()}
+    
+    # Calculate the number of entries for each chromosome
+    entries_per_chromosome = bed_df['chrom'].value_counts()
+
+    # Plot a histogram using matplotlib
+    plt.figure(figsize=(8, 3))
+
+    plt.bar([chromosome_mapping[chrm] for chrm in entries_per_chromosome.index], entries_per_chromosome, color='skyblue', edgecolor='black')
+    plt.xlabel('Chromosome')
+    plt.ylabel('Number of Entries')
+    plt.title('Histogram of '+directory_path+' per Chromosome '+cohort)
+    plt.xticks(list(reverse_chromosome_mapping.keys()), list(reverse_chromosome_mapping.values()))
+    plt.xticks(rotation=45, ha='right')  # Rotate x-axis labels for better readability
+    plt.show()
+    plt.savefig(directory_path+"/"+cohort.upper()+"_chr_entryCounts.png",dpi=250)
+
+
+def analyze_regional_calcmeth_beds(cohort, ttable_df, directory_path, field, 
+                                   read_func, regional_bed_columns, suffix,
+                                   autosomeHeatmaps=False, write_files=True, do_cov_work=True,
+                                   variance_plots=True):
+    """
+    Remove duplicate columns from a DataFrame.
+
+    Parameters:
+    - cohort (string): name of the cohort (eg. nabec)
+    - ttable_df (pd.DataFrame): Input DataFrame of Terra table.
+    - directory_path (path string): directory for regional bed data
+    Returns:
+    - pd.DataFrame: DataFrame of cohort's regional methylaiton data.
+    """
+    
+
+    
+    # Set up directories for localizing files
+    merged_df_exists = make_regional_bed_directories(directory_path, cohort)
+    print("tsv already exists?", merged_df_exists,'\n',directory_path, cohort)
+    if not merged_df_exists:
+        # Localize and load bed files into a dataframe 
+        samples_dict = localize(ttable_df, field, directory_path, cohort, read_func)
+
+        # Concatenate all the sample dataframes into one group dataframe
+        cohort_dfm = pd.concat(samples_dict.values(), axis=1)
+
+        
+        # Consolidate the data and output some diploid and phased beds
+        num_samples = ttable_df.shape[0]
+#         dfm, dfm_avgmod, avgmod_h1, avgmod_h2 = clean_df_write_out_files(cohort_dfm, 
+#                                                                           cohort, 
+#                                                                           num_samples, 
+#                                                                           regional_bed_columns, 
+#                                                                           directory_path, 
+#                                                                           write_files=True)
+        
+
+        dfm = clean_df_write_out_files(cohort_dfm, 
+                                                      cohort, 
+                                                      num_samples, 
+                                                      regional_bed_columns, 
+                                                      directory_path, 
+                                                      extrastr=suffix,
+                                                      write_files=True)
+    else:
+        print('reading tsv')
+        dfm = pd.read_csv(directory_path+"/"+cohort+"_"+directory_path+"_calcMeth.tsv", 
+                          sep="\t", dtype="object")
+        
+    # ensure the ratios and avgMeths are floats    
+    for col in dfm.columns[6:]:
+        dfm[col] = pd.to_numeric(dfm[col], errors='coerce')
+        
+        
+    # Plot bed region coverage and methylation distributions
+    print('plot coverage and methyl dist')
+#     cov_shapes, avgmod_shapes = coverage_and_avgMeth_distributions(dfm, cohort, directory_path)
+    cov_shapes, avgmod_shapes = ratio_and_avgMeth_distributions(dfm, 
+                                                                cohort,
+                                                                directory_path, suffix)
+    
+
+    # Add coverage cutoffs per region
+    # set the coverage cutoff by setting a minimum ratio value
+#     default_min_cov = 5
+    default_ratio_value = 0.9
+    print('ratio cutoff',default_ratio_value)
+#     dfm_min_cov = coverage_cutoffs(dfm, cohort, cov_min = default_min_cov, prefix="totalCov_")
+    dfm_min_cov = ratio_cutoffs(dfm, cohort, 
+                                ratio_min = default_ratio_value, prefix="ratio_")
+    
+    # Isloate the avgMod columns of interest after filtering by min ratio
+    print('isolate avgMod cols and write df')
+    cohort_dfm_min_cov_avgmod= isolate_avgMod_cols(dfm_min_cov, 
+                                cohort, regional_bed_columns )
+    write_out_dataframe(cohort_dfm_min_cov_avgmod, directory_path, cohort)
+    
+    
+
+    # plot counts of bed entries per chr
+#     plot_entries_per_chr(dfm_min_cov, directory_path, cohort+"_5")
+    plot_entries_per_chr(dfm_min_cov, directory_path, cohort)
+    
+    # plot heatmap of avgs after coverage coutoff
+    plot_heatmap(regional_sample_coverage(cohort_dfm_min_cov_avgmod), cohort, 
+                 directory_path, default_ratio_value)
+    
+    """ This isn't adapted to the Ratio values of bedtools map """ 
+    if do_cov_work:
+
+        # Write out group beds after coverage cutoffs 
+        print('write cov cutoff',default_min_cov)
+        write_coverage_cutoff_dataframe(dfm_min_cov, directory_path, cohort, 
+                                        regional_bed_columns, cov_suffix="cov5")
+
+        # calculate second coverage cutoff
+        second_cov_cutoff = coverage_kneePoint_derivitive_analysis(cov_shapes, cohort, directory_path)
+        print('cov cutoff',second_cov_cutoff)
+        dfm_min_cov = coverage_cutoffs(dfm, cohort, cov_min = second_cov_cutoff, prefix="totalCov_")
+        cohort_dfm_min_cov_avgmod2= isolate_avgMod_cols(dfm_min_cov, cohort, get_bed_cols(dfm_min_cov, cohort) )
+        # plot counts of bed entries per chr
+        plot_entries_per_chr(dfm_min_cov, directory_path, cohort+"_"+str(second_cov_cutoff))
+        
+        # plot heatmap of avgs after coverage coutoff
+        plot_heatmap(regional_sample_coverage(cohort_dfm_min_cov_avgmod2), cohort, 
+                     directory_path, second_cov_cutoff)
+
+        # Write out group beds after coverage cutoffs 
+        print('write cov cutoff',second_cov_cutoff)
+        write_coverage_cutoff_dataframe(dfm_min_cov, directory_path, cohort, 
+                                        regional_bed_columns, cov_suffix="cov"+str(second_cov_cutoff))
+    
+    
+        
+    # pca, plot variance of each region across samples, correlation, methylation variation per gene
+
+    if autosomeHeatmaps:
+        #autosomes heatmaps
+        chromosome_names = ['chr'+str(i) for i in range(1, 23)] + ['chrX', 'chrY']
+        for cn in chromosome_names:
+            if cn in cohort_dfm_min_cov_avgmod.index:
+                plot_heatmap(cohort_dfm_min_cov_avgmod.loc[cn], 
+                             cohort, 
+                             directory_path,
+                             default_min_cov,
+                             region=cn,
+                             xls="start")
+    
+    if variance_plots:
+        print('regional_bed_columns',regional_bed_columns)
+        # it was regional_bed_columns[3] to plot variance of each promoter, now I'm using the 'start col' [1]
+        calc_var_std(cohort_dfm_min_cov_avgmod, cohort, directory_path, regional_bed_columns[1], high_var_cutoff=0.1)
+
+    
+    
+    
+#     return result_df
+
+
+
+def main(cohort, ttable_df, directory_path, field, read_func, regional_bed_columns, suffix, autosomeHeatmaps, 
+    write_files, do_cov_work, variance_plots):
+
+    """
+        Starting with the terra table dataframe makes a directory and localizes all the 
+        individual bed files of the cohort. Then combines them into one bedfile filtered
+        by the ratio cutoff. The ratio cutoff is a rato that tells us about the coverage 
+        and minimum number of CpGs in the region that was aggregated by bedtoos map. 
+
+        Expecting input from this bedtools map WDL: 
+        https://github.com/nanoporegenomics/napu_wf/blob/r10/wdl/tasks/bedtoolsMap.wdl
+     """
+
+    print('starting ',datetime.now())
+
+    analyze_regional_calcmeth_beds(cohort, 
+                                   ttable_df, 
+                                   directory_path, 
+                                   field, 
+                                   read_func, 
+                                  regional_bed_columns, suffix = suffix,
+                                  autosomeHeatmaps=autosomeHeatmaps,
+                                  write_files=write_files,
+                                  do_cov_work=do_cov_work, variance_plots=variance_plots
+                                  )
+
+    print('done ',datetime.now())
+
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description='Process cohort bedMethyl files into a filtered cohort bed.')
+
+    # Define arguments
+    parser.add_argument('--cohort', type=str, default='cohort', help='Cohort name')
+    parser.add_argument('--ttable_df', type=str, default='ttable_df', help='Terra Table DataFrame')
+    parser.add_argument('--directory_path', type=str, default='directory_path', help='Directory path')
+    parser.add_argument('--field', type=str, default='field', help='Name of the field in the dataframe of gs links to localize.')
+    parser.add_argument('--read_func', type=str, default='read_func', help='function to read in the region bed columns')
+    parser.add_argument('--regional_bed_columns', type=str, default='regional_bed_columns', help='Regional bed columns')
+    parser.add_argument('--suffix', type=str, default='', help='Suffix to add to end of filenames')
+
+    
+    parser.add_argument('--autosomeHeatmaps', action='store_true', default=False, help='Generate autosome heatmaps')
+    parser.add_argument('--write_files', action='store_true', default=True, help='Write out files')
+    parser.add_argument('--do_cov_work', action='store_true', default=False, help='Do coverage work')
+    parser.add_argument('--variance_plots', action='store_true', default=True, help='Generate variance plots')
+
+
+    # Parse the arguments
+    args = parser.parse_args()
+
+    # Call the main function with the parsed arguments
+    main(args.cohort, args.ttable_df, args.directory_path, args.field, args.read_func, args.regional_bed_columns,
+         args.autosomeHeatmaps, args.write_files, args.do_cov_work, args.variance_plots, args.suffix)
+
+
+
